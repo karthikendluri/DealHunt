@@ -55,82 +55,87 @@ async function serperSearch(query, location) {
 function DealCard({ deal }) {
   const dc = discountColor(deal.discount_percent);
   const bg = discountBg(deal.discount_percent);
+
   return (
-    <a href={deal.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 16,
+        border: "1px solid #e5e7eb",
+        overflow: "hidden",
+        position: "relative",
+        cursor: "default",
+      }}
+    >
       <div
         style={{
-          background: "#fff",
-          borderRadius: 16,
-          border: "1px solid #e5e7eb",
-          overflow: "hidden",
-          position: "relative",
-          cursor: "pointer",
+          height: 180,
+          background: "#f9fafb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
+        {deal.image_url ? (
+          <img
+            src={deal.image_url}
+            alt={deal.item}
+            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", padding: 16 }}
+          />
+        ) : (
+          <div style={{ fontSize: 30 }}>📦</div>
+        )}
         <div
           style={{
-            height: 180,
-            background: "#f9fafb",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            position: "absolute",
+            top: 12,
+            right: 12,
+            background: bg,
+            color: dc,
+            padding: "4px 10px",
+            borderRadius: 20,
+            fontSize: 12,
+            fontWeight: 700,
           }}
         >
-          {deal.image_url ? (
-            <img
-              src={deal.image_url}
-              alt={deal.item}
-              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", padding: 16 }}
-            />
-          ) : (
-            <div style={{ fontSize: 30 }}>📦</div>
-          )}
-          <div
-            style={{
-              position: "absolute",
-              top: 12,
-              right: 12,
-              background: bg,
-              color: dc,
-              padding: "4px 10px",
-              borderRadius: 20,
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            -{deal.discount_percent}%
-          </div>
-        </div>
-        <div style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{deal.store}</div>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, lineHeight: 1.4 }}>{deal.item}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: dc }}>
-              {deal.currency}
-              {deal.discounted_price.toFixed(2)}
-            </span>
-            <span style={{ textDecoration: "line-through", color: "#9ca3af", fontSize: 13 }}>
-              {deal.currency}
-              {deal.original_price.toFixed(2)}
-            </span>
-          </div>
-          <div
-            style={{
-              display: "inline-block",
-              marginTop: 12,
-              background: "#2563eb",
-              color: "#fff",
-              padding: "8px 14px",
-              borderRadius: 8,
-              fontSize: 13,
-              textAlign: "center",
-            }}
-          >
-            View deal →
-          </div>
+          -{deal.discount_percent}%
         </div>
       </div>
-    </a>
+      <div style={{ padding: 16 }}>
+        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{deal.store}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, lineHeight: 1.4 }}>{deal.item}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontSize: 20, fontWeight: 700, color: dc }}>
+            {deal.currency}
+            {deal.discounted_price.toFixed(2)}
+          </span>
+          <span style={{ textDecoration: "line-through", color: "#9ca3af", fontSize: 13 }}>
+            {deal.currency}
+            {deal.original_price.toFixed(2)}
+          </span>
+        </div>
+
+        {/* Only this button links to the store */}
+        <a
+          href={deal.url}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "inline-block",
+            marginTop: 12,
+            background: "#2563eb",
+            color: "#fff",
+            padding: "8px 14px",
+            borderRadius: 8,
+            fontSize: 13,
+            textDecoration: "none",
+            textAlign: "center",
+          }}
+        >
+          View deal →
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -153,9 +158,7 @@ export default function App() {
   const [warrantyFilter, setWarrantyFilter] = useState([]);
   const [sortBy, setSortBy] = useState("relevance");
 
-  useEffect(() => {
-    detectLocation();
-  }, []);
+  useEffect(() => { detectLocation(); }, []);
 
   const detectLocation = async () => {
     try {
@@ -174,9 +177,7 @@ export default function App() {
     try {
       const found = await serperSearch(query, location);
       setDeals(found);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
 
@@ -193,7 +194,7 @@ export default function App() {
       return true;
     }))
     .filter((d) => !ratingFilter.length || ratingFilter.some((r) => d.rating >= r))
-    .filter((d) => !availabilityFilter.length || availabilityFilter.some((a) => (a === "In stock" && d.in_stock) || (a === "Store pickup" && d.in_stock)))
+    .filter((d) => !availabilityFilter.length || availabilityFilter.some((a) => (a === "In stock" && d.in_stock)))
     .filter((d) => !conditionFilter.length || conditionFilter.includes(d.condition))
     .filter((d) => !featuresFilter.length || featuresFilter.includes(d.features))
     .filter((d) => !dealTypeFilter.length || dealTypeFilter.includes(d.deal_type))
