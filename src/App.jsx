@@ -362,17 +362,17 @@ export default function App() {
           </button>
         </div>
 
-        {/* Section Tabs */}
-        {hasSearched && (
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
-            <SectionTabs activeTab={activeTab} onChange={setActiveTab} />
+        {/* Section Tabs — always visible */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
+          <SectionTabs activeTab={activeTab} onChange={setActiveTab} />
+          {hasSearched && (
             <span style={{ fontSize: 13, color: "#9ca3af" }}>
               {activeTab === "deals"
                 ? `${filteredDeals.length} discounted result${filteredDeals.length !== 1 ? "s" : ""}`
                 : `${filteredNdDeals.length} full-price result${filteredNdDeals.length !== 1 ? "s" : ""}`}
             </span>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* WITH DISCOUNT TAB */}
         {activeTab === "deals" && (
@@ -412,18 +412,32 @@ export default function App() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
               {filteredDeals.map((deal, i) => <DealCard key={i} deal={deal} showDiscount={true} />)}
             </div>
+            {!loading && !hasSearched && (
+              <div style={{ textAlign: "center", marginTop: 80, color: "#9ca3af" }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
+                <div style={{ fontSize: 16 }}>Search for a product to find the best deals</div>
+              </div>
+            )}
           </>
         )}
 
         {/* WITHOUT DISCOUNT TAB */}
         {activeTab === "nodiscount" && (
           <>
-            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 18 }}>🏷️</span>
-              <span style={{ fontSize: 13, color: "#475569" }}>
-                These are <strong>full-price listings</strong> — no discounts applied. Useful for comparing against deal prices.
-              </span>
-            </div>
+            {!hasSearched && !loadingNoDiscount && (
+              <div style={{ textAlign: "center", marginTop: 80, color: "#9ca3af" }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🏷️</div>
+                <div style={{ fontSize: 16 }}>Search for a product to see full-price listings</div>
+              </div>
+            )}
+            {hasSearched && (
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🏷️</span>
+                <span style={{ fontSize: 13, color: "#475569" }}>
+                  These are <strong>full-price listings</strong> — no discounts applied. Useful for comparing against deal prices.
+                </span>
+              </div>
+            )}
             {noDiscountDeals.length > 0 && (
               <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <FilterDropdown label="Price" options={priceOptions} selected={ndPriceFilter} onChange={setNdPriceFilter} />
@@ -456,21 +470,7 @@ export default function App() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
               {filteredNdDeals.map((deal, i) => <DealCard key={i} deal={deal} showDiscount={false} />)}
             </div>
-            {!loadingNoDiscount && noDiscountDeals.length === 0 && hasSearched && (
-              <div style={{ textAlign: "center", marginTop: 60, color: "#9ca3af" }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>🏷️</div>
-                <div style={{ fontSize: 15 }}>No full-price results found.</div>
-              </div>
-            )}
           </>
-        )}
-
-        {/* Empty state */}
-        {!hasSearched && !loading && !loadingNoDiscount && (
-          <div style={{ textAlign: "center", marginTop: 80, color: "#9ca3af" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
-            <div style={{ fontSize: 16 }}>Search for a product to find deals and compare prices</div>
-          </div>
         )}
       </div>
     </div>
