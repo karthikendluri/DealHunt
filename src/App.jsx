@@ -64,15 +64,12 @@ async function bestBuySearch(query) {
   const cacheKey = `bestbuy__${query}`;
   const cached = getCached(cacheKey);
   if (cached) return cached;
-
   try {
     const res = await fetch(
       `https://api.bestbuy.com/v1/products((search=${encodeURIComponent(query)}))?apiKey=${BESTBUY_KEY}&show=name,salePrice,regularPrice,url,image,customerReviewAverage,customerReviewCount,shippingCost&pageSize=10&format=json`
     );
     const data = await res.json();
-    const items = data.products || [];
-
-    const results = items.map(item => ({
+    const results = (data.products || []).map(item => ({
       store: "Best Buy",
       item: item.name || "",
       brand: item.name?.split(" ")[0] || "Unknown",
@@ -87,7 +84,6 @@ async function bestBuySearch(query) {
       reviews: item.customerReviewCount || null,
       shipping: item.shippingCost === 0 ? "Free shipping" : `$${item.shippingCost} shipping`,
     }));
-
     setCache(cacheKey, results);
     return results;
   } catch (e) { console.error("BestBuy error:", e); return []; }
@@ -98,7 +94,6 @@ async function walmartSearch(query) {
   const cacheKey = `walmart__${query}`;
   const cached = getCached(cacheKey);
   if (cached) return cached;
-
   try {
     const res = await fetch(
       `https://developer.api.walmart.com/api-proxy/service/affil/product/v2/search?query=${encodeURIComponent(query)}&numItems=10`,
@@ -112,9 +107,7 @@ async function walmartSearch(query) {
       }
     );
     const data = await res.json();
-    const items = data.items || [];
-
-    const results = items.map(item => ({
+    const results = (data.items || []).map(item => ({
       store: "Walmart",
       item: item.name || "",
       brand: item.brandName || item.name?.split(" ")[0] || "Unknown",
@@ -129,7 +122,6 @@ async function walmartSearch(query) {
       reviews: item.numReviews || null,
       shipping: item.freeShippingOver50Dollars ? "Free over $50" : "Standard shipping",
     }));
-
     setCache(cacheKey, results);
     return results;
   } catch (e) { console.error("Walmart error:", e); return []; }
@@ -140,14 +132,12 @@ async function ebaySearch(query) {
   const cacheKey = `ebay__${query}`;
   const cached = getCached(cacheKey);
   if (cached) return cached;
-
   try {
     const res = await fetch(
       `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findItemsByKeywords&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${EBAY_KEY}&RESPONSE-DATA-FORMAT=JSON&keywords=${encodeURIComponent(query)}&paginationInput.entriesPerPage=10&itemFilter(0).name=ListingType&itemFilter(0).value=FixedPrice&sortOrder=BestMatch`
     );
     const data = await res.json();
     const items = data?.findItemsByKeywordsResponse?.[0]?.searchResult?.[0]?.item || [];
-
     const results = items.map(item => {
       const price = parseFloat(item.sellingStatus?.[0]?.currentPrice?.[0]?.__value__) || 0;
       const shipping = parseFloat(item.shippingInfo?.[0]?.shippingServiceCost?.[0]?.__value__) || 0;
@@ -166,7 +156,6 @@ async function ebaySearch(query) {
         shipping: shipping === 0 ? "Free shipping" : `$${shipping.toFixed(2)} shipping`,
       };
     });
-
     setCache(cacheKey, results);
     return results;
   } catch (e) { console.error("eBay error:", e); return []; }
@@ -186,7 +175,6 @@ function discountBg(pct) {
   return "#eff6ff";
 }
 
-// ─── STORE BADGE ───────────────────────────────────────────
 function storeBadgeStyle(store) {
   if (store === "Best Buy") return { background: "#1d4ed8", color: "#fff" };
   if (store === "Walmart") return { background: "#0071ce", color: "#fff" };
@@ -221,11 +209,7 @@ function DealCard({ deal, showDiscount }) {
             </div>
           )}
           {deal.store && (
-            <div style={{
-              position: "absolute", bottom: 8, right: 8,
-              ...storeBadgeStyle(deal.store),
-              padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600
-            }}>
+            <div style={{ position: "absolute", bottom: 8, right: 8, ...storeBadgeStyle(deal.store), padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
               {deal.store}
             </div>
           )}
@@ -303,28 +287,60 @@ function FilterDropdown({ label, options, selected, onChange }) {
   );
 }
 
-// ─── STORE FILTER ──────────────────────────────────────────
-const STORES = [
-  { id: "Best Buy", label: "💙 Best Buy" },
-  { id: "Walmart",  label: "🔵 Walmart" },
-  { id: "eBay",     label: "🔴 eBay" },
-  { id: "other",    label: "🌐 Other" },
-];
+// ─── STORE DROPDOWN ────────────────────────────────────────
+function StoreDropdown({ stores, selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
 
-function StoreFilter({ selected, onChange }) {
+  const selectedLabel = selected === "all"
+    ? "🛒 All Stores"
+    : stores.find(s => s.id === selected)?.label || "🛒 All Stores";
+
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-      {STORES.map(s => (
-        <button key={s.id} onClick={() => onChange(s.id)} style={{
-          padding: "6px 14px", borderRadius: 20, border: "1px solid #e5e7eb",
-          background: selected === s.id ? "#2563eb" : "#fff",
-          color: selected === s.id ? "#fff" : "#374151",
-          fontSize: 13, cursor: "pointer", fontWeight: selected === s.id ? 600 : 400,
-          transition: "all 0.15s"
+    <div ref={ref} style={{ position: "relative" }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        padding: "8px 14px", borderRadius: 8, border: "1px solid #e5e7eb",
+        background: selected !== "all" ? "#2563eb" : "#fff",
+        color: selected !== "all" ? "#fff" : "#374151",
+        fontSize: 13, cursor: "pointer", whiteSpace: "nowrap",
+        display: "flex", alignItems: "center", gap: 6, minWidth: 150
+      }}>
+        <span style={{ flex: 1, textAlign: "left" }}>{selectedLabel}</span>
+        <span style={{ fontSize: 10 }}>▼</span>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 100,
+          background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 200, padding: 6
         }}>
-          {s.label}
-        </button>
-      ))}
+          {stores.map(s => (
+            <div
+              key={s.id}
+              onClick={() => { onChange(s.id); setOpen(false); }}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
+                background: selected === s.id ? "#eff6ff" : "transparent",
+                color: selected === s.id ? "#2563eb" : "#374151",
+                fontWeight: selected === s.id ? 600 : 400
+              }}
+            >
+              <span>{s.label}</span>
+              {s.count > 0 && (
+                <span style={{ background: selected === s.id ? "#dbeafe" : "#f3f4f6", color: selected === s.id ? "#2563eb" : "#6b7280", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>
+                  {s.count}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -395,15 +411,13 @@ export default function App() {
 
   const search = async () => {
     if (!query.trim()) return;
-    setDeals([]);
-    setNoDiscountDeals([]);
+    setDeals([]); setNoDiscountDeals([]);
     setPriceFilter([]); setBrandFilter([]); setShippingFilter([]);
     setRatingFilter([]); setDiscountFilter([]);
     setNdPriceFilter([]); setNdBrandFilter([]); setNdRatingFilter([]);
     setStoreFilter("all"); setNdStoreFilter("all");
     setLoading(true);
     setApiCallCount(c => c + 5);
-
     try {
       const [general, bestbuy, walmart, ebay, generalNd] = await Promise.all([
         serperSearch(query, location, true),
@@ -412,17 +426,16 @@ export default function App() {
         ebaySearch(query),
         serperSearch(query, location, false),
       ]);
-
       setDeals([...bestbuy, ...walmart, ...ebay, ...general]);
       setNoDiscountDeals([...bestbuy, ...walmart, ...ebay, ...generalNd]);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
 
-  // ── filter helpers ──
   const priceOptions = ["Under $25", "$25–$50", "$50–$100", "$100–$200", "$200+"];
   const ratingOptions = ["4★ & up", "3★ & up"];
   const discountOptions = ["50%+ off", "30%+ off", "15%+ off"];
+  const knownStores = ["Best Buy", "Walmart", "eBay"];
 
   const applyPrice = (list, f) => !f.length ? list : list.filter(d => f.some(r => {
     if (r === "Under $25") return d.discounted_price < 25;
@@ -432,13 +445,11 @@ export default function App() {
     if (r === "$200+") return d.discounted_price > 200;
     return true;
   }));
-
   const applyRating = (list, f) => !f.length ? list : list.filter(d => f.some(r => {
     if (r === "4★ & up") return d.rating >= 4;
     if (r === "3★ & up") return d.rating >= 3;
     return true;
   }));
-
   const applySort = (list, s) => [...list].sort((a, b) => {
     if (s === "price_low") return a.discounted_price - b.discounted_price;
     if (s === "price_high") return b.discounted_price - a.discounted_price;
@@ -446,14 +457,12 @@ export default function App() {
     if (s === "rating") return (b.rating || 0) - (a.rating || 0);
     return 0;
   });
-
   const applyStore = (list, sf) => {
     if (sf === "all") return list;
-    if (sf === "other") return list.filter(d => !["Best Buy", "Walmart", "eBay"].includes(d.store));
+    if (sf === "other") return list.filter(d => !knownStores.includes(d.store));
     return list.filter(d => d.store === sf);
   };
 
-  const knownStores = ["Best Buy", "Walmart", "eBay"];
   const brandOptions = [...new Set(deals.map(d => d.brand))].slice(0, 10);
   const shippingOptions = [...new Set(deals.map(d => d.shipping).filter(Boolean))];
   const ndBrandOptions = [...new Set(noDiscountDeals.map(d => d.brand))].slice(0, 10);
@@ -478,20 +487,17 @@ export default function App() {
   const ndActiveFilterCount = ndPriceFilter.length + ndBrandFilter.length + ndRatingFilter.length;
   const hasSearched = deals.length > 0 || noDiscountDeals.length > 0;
 
-  // Store result counts for badges
-  const storeCounts = (list) => {
-    const counts = { all: list.length };
-    STORES.forEach(s => {
-      if (s.id !== "all") {
-        counts[s.id] = s.id === "other"
-          ? list.filter(d => !knownStores.includes(d.store)).length
-          : list.filter(d => d.store === s.id).length;
-      }
-    });
-    return counts;
-  };
-  const dealCounts = storeCounts(deals);
-  const ndCounts = storeCounts(noDiscountDeals);
+  // Build store dropdown options with live counts
+  const buildStoreOptions = (list) => [
+    { id: "all",      label: "🛒 All Stores", count: list.length },
+    { id: "Best Buy", label: "💙 Best Buy",   count: list.filter(d => d.store === "Best Buy").length },
+    { id: "Walmart",  label: "🔵 Walmart",    count: list.filter(d => d.store === "Walmart").length },
+    { id: "eBay",     label: "🔴 eBay",       count: list.filter(d => d.store === "eBay").length },
+    { id: "other",    label: "🌐 Other",      count: list.filter(d => !knownStores.includes(d.store)).length },
+  ];
+
+  const dealStoreOptions = buildStoreOptions(deals);
+  const ndStoreOptions = buildStoreOptions(noDiscountDeals);
 
   return (
     <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "sans-serif" }}>
@@ -535,39 +541,15 @@ export default function App() {
         {activeTab === "deals" && (
           <>
             {deals.length > 0 && (
-              <>
-                {/* Store filter with counts */}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                  {STORES.map(s => (
-                    <button key={s.id} onClick={() => setStoreFilter(s.id)} style={{
-                      padding: "6px 14px", borderRadius: 20, border: "1px solid #e5e7eb",
-                      background: storeFilter === s.id ? "#2563eb" : "#fff",
-                      color: storeFilter === s.id ? "#fff" : "#374151",
-                      fontSize: 13, cursor: "pointer", fontWeight: storeFilter === s.id ? 600 : 400,
-                      display: "flex", alignItems: "center", gap: 5
-                    }}>
-                      {s.label}
-                      {dealCounts[s.id] > 0 && (
-                        <span style={{
-                          background: storeFilter === s.id ? "rgba(255,255,255,0.3)" : "#e5e7eb",
-                          color: storeFilter === s.id ? "#fff" : "#6b7280",
-                          borderRadius: 10, padding: "1px 6px", fontSize: 11, fontWeight: 700
-                        }}>
-                          {dealCounts[s.id]}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <FilterDropdown label="Price" options={priceOptions} selected={priceFilter} onChange={setPriceFilter} />
-                  {brandOptions.length > 1 && <FilterDropdown label="Brand" options={brandOptions} selected={brandFilter} onChange={setBrandFilter} />}
-                  <FilterDropdown label="Discount" options={discountOptions} selected={discountFilter} onChange={setDiscountFilter} />
-                  {shippingOptions.length > 1 && <FilterDropdown label="Shipping" options={shippingOptions} selected={shippingFilter} onChange={setShippingFilter} />}
-                  <FilterDropdown label="Rating" options={ratingOptions} selected={ratingFilter} onChange={setRatingFilter} />
-                </div>
-              </>
+              <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
+                {/* Store dropdown */}
+                <StoreDropdown stores={dealStoreOptions} selected={storeFilter} onChange={setStoreFilter} />
+                <FilterDropdown label="Price" options={priceOptions} selected={priceFilter} onChange={setPriceFilter} />
+                {brandOptions.length > 1 && <FilterDropdown label="Brand" options={brandOptions} selected={brandFilter} onChange={setBrandFilter} />}
+                <FilterDropdown label="Discount" options={discountOptions} selected={discountFilter} onChange={setDiscountFilter} />
+                {shippingOptions.length > 1 && <FilterDropdown label="Shipping" options={shippingOptions} selected={shippingFilter} onChange={setShippingFilter} />}
+                <FilterDropdown label="Rating" options={ratingOptions} selected={ratingFilter} onChange={setRatingFilter} />
+              </div>
             )}
             {deals.length > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
@@ -580,10 +562,10 @@ export default function App() {
                   <option value="discount">Biggest Discount</option>
                   <option value="rating">Top Rated</option>
                 </select>
-                {activeFilterCount > 0 && (
-                  <button onClick={() => { setPriceFilter([]); setBrandFilter([]); setShippingFilter([]); setRatingFilter([]); setDiscountFilter([]); }}
+                {(activeFilterCount > 0 || storeFilter !== "all") && (
+                  <button onClick={() => { setPriceFilter([]); setBrandFilter([]); setShippingFilter([]); setRatingFilter([]); setDiscountFilter([]); setStoreFilter("all"); }}
                     style={{ fontSize: 12, color: "#dc2626", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", marginLeft: "auto" }}>
-                    Clear all ({activeFilterCount})
+                    Clear all
                   </button>
                 )}
               </div>
@@ -617,41 +599,17 @@ export default function App() {
               </div>
             )}
             {hasSearched && (
-              <>
-                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>🏷️</span>
-                  <span style={{ fontSize: 13, color: "#475569" }}>
-                    <strong>Full-price listings</strong> from Best Buy, Walmart, eBay & more.
-                  </span>
-                </div>
-
-                {/* Store filter with counts */}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                  {STORES.map(s => (
-                    <button key={s.id} onClick={() => setNdStoreFilter(s.id)} style={{
-                      padding: "6px 14px", borderRadius: 20, border: "1px solid #e5e7eb",
-                      background: ndStoreFilter === s.id ? "#374151" : "#fff",
-                      color: ndStoreFilter === s.id ? "#fff" : "#374151",
-                      fontSize: 13, cursor: "pointer", fontWeight: ndStoreFilter === s.id ? 600 : 400,
-                      display: "flex", alignItems: "center", gap: 5
-                    }}>
-                      {s.label}
-                      {ndCounts[s.id] > 0 && (
-                        <span style={{
-                          background: ndStoreFilter === s.id ? "rgba(255,255,255,0.3)" : "#e5e7eb",
-                          color: ndStoreFilter === s.id ? "#fff" : "#6b7280",
-                          borderRadius: 10, padding: "1px 6px", fontSize: 11, fontWeight: 700
-                        }}>
-                          {ndCounts[s.id]}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🏷️</span>
+                <span style={{ fontSize: 13, color: "#475569" }}>
+                  <strong>Full-price listings</strong> from Best Buy, Walmart, eBay & more.
+                </span>
+              </div>
             )}
             {noDiscountDeals.length > 0 && (
               <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
+                {/* Store dropdown */}
+                <StoreDropdown stores={ndStoreOptions} selected={ndStoreFilter} onChange={setNdStoreFilter} />
                 <FilterDropdown label="Price" options={priceOptions} selected={ndPriceFilter} onChange={setNdPriceFilter} />
                 {ndBrandOptions.length > 1 && <FilterDropdown label="Brand" options={ndBrandOptions} selected={ndBrandFilter} onChange={setNdBrandFilter} />}
                 <FilterDropdown label="Rating" options={ratingOptions} selected={ndRatingFilter} onChange={setNdRatingFilter} />
@@ -667,10 +625,10 @@ export default function App() {
                   <option value="price_high">Price: High → Low</option>
                   <option value="rating">Top Rated</option>
                 </select>
-                {ndActiveFilterCount > 0 && (
-                  <button onClick={() => { setNdPriceFilter([]); setNdBrandFilter([]); setNdRatingFilter([]); }}
+                {(ndActiveFilterCount > 0 || ndStoreFilter !== "all") && (
+                  <button onClick={() => { setNdPriceFilter([]); setNdBrandFilter([]); setNdRatingFilter([]); setNdStoreFilter("all"); }}
                     style={{ fontSize: 12, color: "#dc2626", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", marginLeft: "auto" }}>
-                    Clear all ({ndActiveFilterCount})
+                    Clear all
                   </button>
                 )}
               </div>
@@ -685,15 +643,3 @@ export default function App() {
     </div>
   );
 }
-```
-
-Key changes:
-- **Sam's Club & Costco fully removed**
-- **Best Buy, Walmart, eBay** integrated with real APIs
-- **Store filter pills show live counts** — e.g. `💙 Best Buy 8` so you know how many results per store
-- Active store filter uses different color per tab (blue for deals, dark for no-discount)
-- Add these to your `.env`:
-```
-VITE_BESTBUY_KEY=your_bestbuy_key
-VITE_WALMART_KEY=your_walmart_key
-VITE_EBAY_KEY=your_ebay_appid
