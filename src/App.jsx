@@ -36,7 +36,7 @@ async function serperSearch(query, location) {
     const res = await fetch('https://google.serper.dev/shopping', {
       method: 'POST',
       headers: { 'X-API-KEY': SERPER_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: query+' deal discount sale', gl: country, num: 10 }),
+      body: JSON.stringify({ q: query+' deal discount sale', gl: country, num: 5 }),
     })
     const data = await res.json()
     if (data.shopping?.length) {
@@ -53,12 +53,12 @@ async function serperSearch(query, location) {
     const res = await fetch('https://google.serper.dev/search', {
       method: 'POST',
       headers: { 'X-API-KEY': SERPER_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: query+' "was $" OR "save $" OR "% off" OR "sale price" 2025 OR 2026', gl: country, num: 10 }),
+      body: JSON.stringify({ q: query+' "was $" OR "save $" OR "% off" OR "sale price"', gl: country, num: 5 }),
     })
     const data = await res.json()
     if (data.organic?.length) {
       for (const item of data.organic) {
-        results.push({ url: item.link||'', title: item.title||'', content: item.title+' | '+(item.snippet||''), type: 'web' })
+        results.push({ url: item.link||'', title: item.title||'', content: (item.title+' | '+(item.snippet||'')).slice(0,200), type: 'web' })
       }
     }
     if (data.shopping?.length) {
@@ -74,13 +74,13 @@ async function extractDeals(searchResults, query, modelId, location) {
   const locContext = location
     ? 'The user is in '+location.city+', '+location.region+', '+location.country+' ('+( location.currency||'USD')+').'
     : 'Location unknown — use USD.'
-  const shoppingItems = searchResults.filter(r => r.type==='shopping')
-  const webItems      = searchResults.filter(r => r.type==='web')
+  const shoppingItems = searchResults.filter(r => r.type==='shopping').slice(0,5)
+  const webItems      = searchResults.filter(r => r.type==='web').slice(0,5)
   const shoppingContext = shoppingItems.map((r,i) =>
-    'PRODUCT '+(i+1)+': '+r.title+' | Store: '+r.source+' | Price: '+r.price+' | URL: '+r.url+(r.imageUrl?' | Image: '+r.imageUrl:'')
+    'PRODUCT '+(i+1)+': '+r.title.slice(0,80)+' | Store: '+r.source+' | Price: '+r.price+' | URL: '+r.url+(r.imageUrl?' | Image: '+r.imageUrl:'')
   ).join('\n')
   const webContext = webItems.map((r,i) =>
-    'WEB '+(i+1)+': '+r.title+'\n'+r.content+'\nURL: '+r.url
+    'WEB '+(i+1)+': '+r.title.slice(0,80)+'\n'+r.content.slice(0,200)+'\nURL: '+r.url
   ).join('\n\n')
 
   const prompt = `You are a deal extraction AI. User searched: "${query}"
