@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { storeDeals, retrieveSimilarDeals, getRecentSearches } from './pinecone.js'
-import { CANDIDATE_MODELS, probeAllModels } from './models.js'
 
-const SERPER_KEY = import.meta.env.VITE_SERPER_KEY
-const OR_KEY     = import.meta.env.VITE_OPENROUTER_KEY
-const PC_KEY     = import.meta.env.VITE_PINECONE_KEY
-const PC_HOST    = import.meta.env.VITE_PINECONE_HOST
+const SERPER_KEY  = import.meta.env.VITE_SERPER_KEY
+const CLAUDE_KEY  = import.meta.env.VITE_CLAUDE_KEY
+const PC_KEY      = import.meta.env.VITE_PINECONE_KEY
+const PC_HOST     = import.meta.env.VITE_PINECONE_HOST
 
 function discountColor(pct) {
   if (pct >= 50) return '#dc2626'
@@ -70,7 +69,7 @@ async function serperSearch(query, location) {
   return results
 }
 
-async function extractDeals(searchResults, query, modelId, location) {
+async function extractDeals(searchResults, query, location) {
   const locContext = location
     ? 'The user is in '+location.city+', '+location.region+', '+location.country+' ('+( location.currency||'USD')+').'
     : 'Location unknown — use USD.'
@@ -97,27 +96,30 @@ Return ONLY raw JSON array:
 [{"store":"Amazon","item":"Product name","original_price":299.99,"discounted_price":199.99,"discount_percent":33,"deal_type":"Sale","expires":"Limited Time","url":"https://...","image_url":"https://...","currency":"${location?.currency||'USD'}","highlight":"Why great deal","available_in":"${location?.country||'US'}"}]
 Rules: discounted_price < original_price, real prices only, use shopping image URLs, return [] if no verified deals.`
 
-  // Try primary model first, then fallback through candidates
-  const modelsToTry = [modelId, ...CANDIDATE_MODELS.filter(m => m !== modelId)].slice(0, 4)
-  for (const model of modelsToTry) {
-    try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization':'Bearer '+OR_KEY, 'Content-Type':'application/json', 'HTTP-Referer':'https://dealhunt.vercel.app', 'X-Title':'DealHunt' },
-        body: JSON.stringify({ model, messages: [{ role:'user', content: prompt }], max_tokens: 2000, temperature: 0.2 }),
-      })
-      const data = await res.json()
-      if (data.error) { console.warn('Model '+model+' failed:', data.error.message); continue }
-      const raw = data.choices?.[0]?.message?.content||''
-      const match = raw.replace(/```json|```/gi,'').trim().match(/\[[\s\S]*\]/)
-      if (!match) { console.warn('No JSON from '+model); continue }
-      return JSON.parse(match[0]).filter(d =>
-        d.store && d.item && typeof d.original_price==='number' && typeof d.discounted_price==='number' &&
-        d.discounted_price < d.original_price && d.discount_percent > 0
-      )
-    } catch(e) { console.warn('Model '+model+' threw:', e.message) }
-  }
-  throw new Error('All models failed — please try again in a moment.')
+  // Call Claude API directly
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': CLAUDE_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
+  const raw = data.content?.[0]?.text || ''
+  const match = raw.replace(/```json|```/gi,'').trim().match(/\[[\s\S]*\]/)
+  if (!match) throw new Error('No JSON in AI response')
+  return JSON.parse(match[0]).filter(d =>
+    d.store && d.item && typeof d.original_price==='number' && typeof d.discounted_price==='number' &&
+    d.discounted_price < d.original_price && d.discount_percent > 0
+  )
 }
 
 function DealCard({ deal, index }) {
@@ -178,18 +180,14 @@ export default function App() {
   const [cacheHit,       setCacheHit]       = useState(null)
   const [recentSearches, setRecentSearches] = useState([])
   const [location,       setLocation]       = useState(null)
-  const [workingModel,   setWorkingModel]   = useState(null)
-  const [modelsTested,   setModelsTested]   = useState(false)
   const [pcStatus,       setPcStatus]       = useState('')
 
   const inputRef  = useRef(null)
-  const statusRef = useRef({})
   const pcEnabled = !!(PC_KEY && PC_HOST)
 
   useEffect(() => {
     if (pcEnabled) getRecentSearches().then(setRecentSearches)
     detectLocation()
-    runProbeModels()
   }, [])
 
   const detectLocation = async () => {
@@ -200,18 +198,6 @@ export default function App() {
     } catch { setLocation({ city:'Unknown', region:'', country:'US', countryCode:'US', currency:'USD' }) }
   }
 
-  const runProbeModels = async () => {
-    setModelsTested(false); setWorkingModel(null)
-    statusRef.current = {}
-    let firstSet = false
-    await probeAllModels(OR_KEY, (id, status) => {
-      statusRef.current[id] = status
-      if (status==='ok' && !firstSet) { firstSet=true; setWorkingModel(id) }
-    })
-    if (!firstSet) setWorkingModel(CANDIDATE_MODELS[0])
-    setModelsTested(true)
-  }
-
   const addHistory = (q) => {
     const next = [q,...history.filter(h=>h!==q)].slice(0,8)
     setHistory(next); localStorage.setItem('dh_hist', JSON.stringify(next))
@@ -219,7 +205,6 @@ export default function App() {
 
   const search = async () => {
     if (!query.trim()) { setError('Enter a product to search.'); return }
-    const modelToUse = workingModel || CANDIDATE_MODELS[0]
     setError(''); setDeals([]); setLoading(true); setCacheHit(null); setPcStatus('')
     addHistory(query.trim())
     try {
@@ -236,7 +221,7 @@ export default function App() {
       setStage('searching')
       const searchResults = await serperSearch(query, location)
       setStage('analyzing')
-      const found = await extractDeals(searchResults, query, modelToUse, location)
+      const found = await extractDeals(searchResults, query, location)
       const sorted = found.sort((a,b)=>b.discount_percent-a.discount_percent)
       setDeals(sorted)
       if (pcEnabled && sorted.length > 0) {
