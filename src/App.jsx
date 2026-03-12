@@ -97,20 +97,27 @@ Return ONLY raw JSON array:
 [{"store":"Amazon","item":"Product name","original_price":299.99,"discounted_price":199.99,"discount_percent":33,"deal_type":"Sale","expires":"Limited Time","url":"https://...","image_url":"https://...","currency":"${location?.currency||'USD'}","highlight":"Why great deal","available_in":"${location?.country||'US'}"}]
 Rules: discounted_price < original_price, real prices only, use shopping image URLs, return [] if no verified deals.`
 
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization':'Bearer '+OR_KEY, 'Content-Type':'application/json', 'HTTP-Referer':'https://dealhunt.vercel.app', 'X-Title':'DealHunt' },
-    body: JSON.stringify({ model: modelId, messages: [{ role:'user', content: prompt }], max_tokens: 2500, temperature: 0.2 }),
-  })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  const raw = data.choices?.[0]?.message?.content||''
-  const match = raw.replace(/```json|```/gi,'').trim().match(/\[[\s\S]*\]/)
-  if (!match) throw new Error('No JSON in AI response')
-  return JSON.parse(match[0]).filter(d =>
-    d.store && d.item && typeof d.original_price==='number' && typeof d.discounted_price==='number' &&
-    d.discounted_price < d.original_price && d.discount_percent > 0
-  )
+  // Try primary model first, then fallback through candidates
+  const modelsToTry = [modelId, ...CANDIDATE_MODELS.filter(m => m !== modelId)].slice(0, 4)
+  for (const model of modelsToTry) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization':'Bearer '+OR_KEY, 'Content-Type':'application/json', 'HTTP-Referer':'https://dealhunt.vercel.app', 'X-Title':'DealHunt' },
+        body: JSON.stringify({ model, messages: [{ role:'user', content: prompt }], max_tokens: 2000, temperature: 0.2 }),
+      })
+      const data = await res.json()
+      if (data.error) { console.warn('Model '+model+' failed:', data.error.message); continue }
+      const raw = data.choices?.[0]?.message?.content||''
+      const match = raw.replace(/```json|```/gi,'').trim().match(/\[[\s\S]*\]/)
+      if (!match) { console.warn('No JSON from '+model); continue }
+      return JSON.parse(match[0]).filter(d =>
+        d.store && d.item && typeof d.original_price==='number' && typeof d.discounted_price==='number' &&
+        d.discounted_price < d.original_price && d.discount_percent > 0
+      )
+    } catch(e) { console.warn('Model '+model+' threw:', e.message) }
+  }
+  throw new Error('All models failed — please try again in a moment.')
 }
 
 function DealCard({ deal, index }) {
