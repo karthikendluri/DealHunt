@@ -137,7 +137,6 @@ function DealCard({ deal, showDiscount }) {
   );
 }
 
-// Dropdown filter component for the top bar
 function FilterDropdown({ label, options, selected, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -185,7 +184,6 @@ function FilterDropdown({ label, options, selected, onChange }) {
   );
 }
 
-// Section Tab Toggle
 function SectionTabs({ activeTab, onChange }) {
   return (
     <div style={{ display: "flex", gap: 0, borderRadius: 10, border: "1px solid #e5e7eb", overflow: "hidden", background: "#f3f4f6" }}>
@@ -195,7 +193,7 @@ function SectionTabs({ activeTab, onChange }) {
           padding: "9px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
           background: activeTab === "deals" ? "#2563eb" : "transparent",
           color: activeTab === "deals" ? "#fff" : "#6b7280",
-          transition: "all 0.15s", borderRadius: 0,
+          transition: "all 0.15s",
           display: "flex", alignItems: "center", gap: 6
         }}
       >
@@ -207,7 +205,7 @@ function SectionTabs({ activeTab, onChange }) {
           padding: "9px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
           background: activeTab === "nodiscount" ? "#374151" : "transparent",
           color: activeTab === "nodiscount" ? "#fff" : "#6b7280",
-          transition: "all 0.15s", borderRadius: 0,
+          transition: "all 0.15s",
           display: "flex", alignItems: "center", gap: 6
         }}
       >
@@ -227,7 +225,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("deals");
   const inputRef = useRef(null);
 
-  // Dynamic filters derived from results
   const [priceFilter, setPriceFilter] = useState([]);
   const [brandFilter, setBrandFilter] = useState([]);
   const [shippingFilter, setShippingFilter] = useState([]);
@@ -235,7 +232,6 @@ export default function App() {
   const [discountFilter, setDiscountFilter] = useState([]);
   const [sortBy, setSortBy] = useState("relevance");
 
-  // No-discount tab filters
   const [ndPriceFilter, setNdPriceFilter] = useState([]);
   const [ndBrandFilter, setNdBrandFilter] = useState([]);
   const [ndRatingFilter, setNdRatingFilter] = useState([]);
@@ -274,7 +270,6 @@ export default function App() {
     setLoadingNoDiscount(false);
   };
 
-  // ---- Deals tab filters ----
   const brandOptions = [...new Set(deals.map(d => d.brand))].slice(0, 10);
   const shippingOptions = [...new Set(deals.map(d => d.shipping).filter(Boolean))];
   const priceOptions = ["Under $25", "$25–$50", "$50–$100", "$100–$200", "$200+"];
@@ -326,7 +321,6 @@ export default function App() {
     sortBy
   );
 
-  // ---- No-discount tab filters ----
   const ndBrandOptions = [...new Set(noDiscountDeals.map(d => d.brand))].slice(0, 10);
 
   const filteredNdDeals = applySortBy(
@@ -368,7 +362,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Section Tabs — only shown after search */}
+        {/* Section Tabs */}
         {hasSearched && (
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
             <SectionTabs activeTab={activeTab} onChange={setActiveTab} />
@@ -380,33 +374,23 @@ export default function App() {
           </div>
         )}
 
-        {/* ---- DEALS TAB ---- */}
+        {/* WITH DISCOUNT TAB */}
         {activeTab === "deals" && (
           <>
-            {/* Filter row */}
             {deals.length > 0 && (
               <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <FilterDropdown label="Price" options={priceOptions} selected={priceFilter} onChange={setPriceFilter} />
-                {brandOptions.length > 1 && (
-                  <FilterDropdown label="Brand" options={brandOptions} selected={brandFilter} onChange={setBrandFilter} />
-                )}
+                {brandOptions.length > 1 && <FilterDropdown label="Brand" options={brandOptions} selected={brandFilter} onChange={setBrandFilter} />}
                 <FilterDropdown label="Discount" options={discountOptions} selected={discountFilter} onChange={setDiscountFilter} />
-                {shippingOptions.length > 1 && (
-                  <FilterDropdown label="Shipping" options={shippingOptions} selected={shippingFilter} onChange={setShippingFilter} />
-                )}
+                {shippingOptions.length > 1 && <FilterDropdown label="Shipping" options={shippingOptions} selected={shippingFilter} onChange={setShippingFilter} />}
                 <FilterDropdown label="Rating" options={ratingOptions} selected={ratingFilter} onChange={setRatingFilter} />
               </div>
             )}
-
-            {/* Sort + count row */}
             {deals.length > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Sort by:</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, background: "#fff", cursor: "pointer" }}
-                >
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+                  style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, background: "#fff", cursor: "pointer" }}>
                   <option value="relevance">Relevance</option>
                   <option value="price_low">Price: Low → High</option>
                   <option value="price_high">Price: High → Low</option>
@@ -415,68 +399,43 @@ export default function App() {
                 </select>
                 {activeFilterCount > 0 && (
                   <>
-                    <span style={{ fontSize: 13, color: "#6b7280", marginLeft: "auto" }}>
-                      {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active
-                    </span>
-                    <button
-                      onClick={() => { setPriceFilter([]); setBrandFilter([]); setShippingFilter([]); setRatingFilter([]); setDiscountFilter([]); }}
-                      style={{ fontSize: 12, color: "#dc2626", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-                    >
+                    <span style={{ fontSize: 13, color: "#6b7280", marginLeft: "auto" }}>{activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active</span>
+                    <button onClick={() => { setPriceFilter([]); setBrandFilter([]); setShippingFilter([]); setRatingFilter([]); setDiscountFilter([]); }}
+                      style={{ fontSize: 12, color: "#dc2626", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
                       Clear all
                     </button>
                   </>
                 )}
               </div>
             )}
-
             {loading && <div style={{ textAlign: "center", marginTop: 40, fontSize: 16 }}>🔍 Searching deals...</div>}
-
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
-              {filteredDeals.map((deal, i) => (
-                <DealCard key={i} deal={deal} showDiscount={true} />
-              ))}
+              {filteredDeals.map((deal, i) => <DealCard key={i} deal={deal} showDiscount={true} />)}
             </div>
-
-            {!loading && deals.length === 0 && !hasSearched && (
-              <div style={{ textAlign: "center", marginTop: 80, color: "#9ca3af" }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
-                <div style={{ fontSize: 16 }}>Search for a product to find the best deals</div>
-              </div>
-            )}
           </>
         )}
 
-        {/* ---- NO DISCOUNT TAB ---- */}
+        {/* WITHOUT DISCOUNT TAB */}
         {activeTab === "nodiscount" && (
           <>
-            {/* Info banner */}
             <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 18 }}>🏷️</span>
               <span style={{ fontSize: 13, color: "#475569" }}>
                 These are <strong>full-price listings</strong> — no discounts applied. Useful for comparing against deal prices.
               </span>
             </div>
-
-            {/* Filter row */}
             {noDiscountDeals.length > 0 && (
               <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <FilterDropdown label="Price" options={priceOptions} selected={ndPriceFilter} onChange={setNdPriceFilter} />
-                {ndBrandOptions.length > 1 && (
-                  <FilterDropdown label="Brand" options={ndBrandOptions} selected={ndBrandFilter} onChange={setNdBrandFilter} />
-                )}
+                {ndBrandOptions.length > 1 && <FilterDropdown label="Brand" options={ndBrandOptions} selected={ndBrandFilter} onChange={setNdBrandFilter} />}
                 <FilterDropdown label="Rating" options={ratingOptions} selected={ndRatingFilter} onChange={setNdRatingFilter} />
               </div>
             )}
-
-            {/* Sort + count row */}
             {noDiscountDeals.length > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Sort by:</label>
-                <select
-                  value={ndSortBy}
-                  onChange={(e) => setNdSortBy(e.target.value)}
-                  style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, background: "#fff", cursor: "pointer" }}
-                >
+                <select value={ndSortBy} onChange={(e) => setNdSortBy(e.target.value)}
+                  style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, background: "#fff", cursor: "pointer" }}>
                   <option value="relevance">Relevance</option>
                   <option value="price_low">Price: Low → High</option>
                   <option value="price_high">Price: High → Low</option>
@@ -484,28 +443,19 @@ export default function App() {
                 </select>
                 {ndActiveFilterCount > 0 && (
                   <>
-                    <span style={{ fontSize: 13, color: "#6b7280", marginLeft: "auto" }}>
-                      {ndActiveFilterCount} filter{ndActiveFilterCount !== 1 ? "s" : ""} active
-                    </span>
-                    <button
-                      onClick={() => { setNdPriceFilter([]); setNdBrandFilter([]); setNdRatingFilter([]); }}
-                      style={{ fontSize: 12, color: "#dc2626", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-                    >
+                    <span style={{ fontSize: 13, color: "#6b7280", marginLeft: "auto" }}>{ndActiveFilterCount} filter{ndActiveFilterCount !== 1 ? "s" : ""} active</span>
+                    <button onClick={() => { setNdPriceFilter([]); setNdBrandFilter([]); setNdRatingFilter([]); }}
+                      style={{ fontSize: 12, color: "#dc2626", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
                       Clear all
                     </button>
                   </>
                 )}
               </div>
             )}
-
             {loadingNoDiscount && <div style={{ textAlign: "center", marginTop: 40, fontSize: 16 }}>🔍 Fetching full-price listings...</div>}
-
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
-              {filteredNdDeals.map((deal, i) => (
-                <DealCard key={i} deal={deal} showDiscount={false} />
-              ))}
+              {filteredNdDeals.map((deal, i) => <DealCard key={i} deal={deal} showDiscount={false} />)}
             </div>
-
             {!loadingNoDiscount && noDiscountDeals.length === 0 && hasSearched && (
               <div style={{ textAlign: "center", marginTop: 60, color: "#9ca3af" }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>🏷️</div>
@@ -515,7 +465,7 @@ export default function App() {
           </>
         )}
 
-        {/* Empty state before any search */}
+        {/* Empty state */}
         {!hasSearched && !loading && !loadingNoDiscount && (
           <div style={{ textAlign: "center", marginTop: 80, color: "#9ca3af" }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
