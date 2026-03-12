@@ -28,7 +28,7 @@ async function serperSearch(query, location) {
     body: JSON.stringify({
       q: query + " discount sale",
       gl: country,
-      num: 20,
+      num: 10,
     }),
   });
 
@@ -86,7 +86,12 @@ function DealCard({ deal }) {
           <img
             src={deal.image_url}
             alt={deal.item}
-            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", padding: 16 }}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              padding: 16,
+            }}
           />
         ) : (
           <div style={{ fontSize: 30 }}>📦</div>
@@ -110,20 +115,39 @@ function DealCard({ deal }) {
       </div>
 
       <div style={{ padding: 16 }}>
-        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{deal.store}</div>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+          {deal.store}
+        </div>
+
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            marginBottom: 12,
+            lineHeight: 1.4,
+          }}
+        >
           {deal.item}
         </div>
+
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <span style={{ fontSize: 20, fontWeight: 700, color: dc }}>
             {deal.currency}
             {deal.discounted_price.toFixed(2)}
           </span>
-          <span style={{ textDecoration: "line-through", color: "#9ca3af", fontSize: 13 }}>
+
+          <span
+            style={{
+              textDecoration: "line-through",
+              color: "#9ca3af",
+              fontSize: 13,
+            }}
+          >
             {deal.currency}
             {deal.original_price.toFixed(2)}
           </span>
         </div>
+
         <a
           href={deal.url}
           target="_blank"
@@ -152,8 +176,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
 
-  const [selectedBrands, setSelectedBrands] = useState([]);
-  const [maxPrice, setMaxPrice] = useState("");
+  // Filters
+  const [brandFilter, setBrandFilter] = useState("All");
   const [sortBy, setSortBy] = useState("relevance");
 
   const inputRef = useRef(null);
@@ -166,36 +190,48 @@ export default function App() {
     try {
       const res = await fetch("https://ipapi.co/json/");
       const data = await res.json();
-      setLocation({ city: data.city, country: data.country_name, countryCode: data.country_code });
+
+      setLocation({
+        city: data.city,
+        country: data.country_name,
+        countryCode: data.country_code,
+      });
     } catch {
-      setLocation({ city: "Unknown", country: "US", countryCode: "US" });
+      setLocation({
+        city: "Unknown",
+        country: "US",
+        countryCode: "US",
+      });
     }
   };
 
   const search = async () => {
     if (!query.trim()) return;
+
     setDeals([]);
     setLoading(true);
+
     try {
       const found = await serperSearch(query, location);
       setDeals(found);
     } catch (e) {
       console.error(e);
     }
+
     setLoading(false);
   };
 
-  const toggleBrand = (brand) => {
-    setSelectedBrands((prev) =>
-      prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
-    );
-  };
+  const suggestions = ["iPhone 16", "Nike Air Max", "PS5", "AirPods Pro", "MacBook Air"];
 
-  const brands = [...new Set(deals.map((d) => d.brand))].sort();
+  // Extract brands from current deals
+  const brands = ["All", ...new Set(deals.map((d) => d.item.split(" ")[0]))];
 
+  // Apply filters and sorting
   const filteredDeals = deals
-    .filter((d) => (selectedBrands.length ? selectedBrands.includes(d.brand) : true))
-    .filter((d) => (maxPrice ? d.discounted_price <= Number(maxPrice) : true))
+    .filter((deal) => {
+      if (brandFilter !== "All" && !deal.item.includes(brandFilter)) return false;
+      return true;
+    })
     .sort((a, b) => {
       if (sortBy === "price_low") return a.discounted_price - b.discounted_price;
       if (sortBy === "price_high") return b.discounted_price - a.discounted_price;
@@ -205,66 +241,93 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "sans-serif" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: 30 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700 }}>🔥 DealHunt</h1>
-        <div style={{ display: "flex", gap: 20 }}>
-          {/* Sidebar filters */}
-          <div style={{ width: 250, background: "#fff", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
-            <h3 style={{ marginBottom: 10 }}>Brands</h3>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: 30 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 10 }}>🔥 DealHunt</h1>
+        <p style={{ color: "#6b7280", marginBottom: 20 }}>Find the best product deals online</p>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && search()}
+            placeholder="Search product deals..."
+            style={{ flex: 1, padding: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+          />
+          <button
+            onClick={search}
+            disabled={loading}
+            style={{
+              background: "#2563eb",
+              color: "#fff",
+              padding: "12px 20px",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Searching..." : "Search"}
+          </button>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              onClick={() => setQuery(s)}
+              style={{
+                marginRight: 8,
+                marginTop: 8,
+                fontSize: 12,
+                border: "1px solid #e5e7eb",
+                borderRadius: 14,
+                padding: "4px 10px",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <select
+            value={brandFilter}
+            onChange={(e) => setBrandFilter(e.target.value)}
+            style={{ padding: 8, borderRadius: 8 }}
+          >
             {brands.map((b) => (
-              <label key={b} style={{ display: "block", marginBottom: 4, fontSize: 13 }}>
-                <input
-                  type="checkbox"
-                  checked={selectedBrands.includes(b)}
-                  onChange={() => toggleBrand(b)}
-                  style={{ marginRight: 6 }}
-                />
-                {b}
-              </label>
+              <option key={b}>{b}</option>
             ))}
+          </select>
 
-            <h3 style={{ marginTop: 16 }}>Max Price</h3>
-            <input
-              type="number"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              placeholder="Max Price"
-              style={{ width: "100%", padding: 6, marginTop: 4, borderRadius: 4, border: "1px solid #e5e7eb" }}
-            />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{ padding: 8, borderRadius: 8 }}
+          >
+            <option value="relevance">Relevance</option>
+            <option value="price_low">Price: Low → High</option>
+            <option value="price_high">Price: High → Low</option>
+            <option value="discount">Biggest Discount</option>
+          </select>
+        </div>
 
-            <h3 style={{ marginTop: 16 }}>Sort By</h3>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ width: "100%", padding: 6, borderRadius: 4 }}>
-              <option value="relevance">Relevance</option>
-              <option value="price_low">Price: Low → High</option>
-              <option value="price_high">Price: High → Low</option>
-              <option value="discount">Biggest Discount</option>
-            </select>
-          </div>
+        {loading && <div style={{ marginTop: 30, textAlign: "center" }}>🔍 Searching deals...</div>}
 
-          {/* Main content */}
-          <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && search()}
-                placeholder="Search product deals..."
-                style={{ flex: 1, padding: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
-              />
-              <button onClick={search} disabled={loading} style={{ background: "#2563eb", color: "#fff", padding: "12px 20px", borderRadius: 8, border: "none", cursor: "pointer" }}>
-                {loading ? "Searching..." : "Search"}
-              </button>
-            </div>
-
-            {loading && <div style={{ textAlign: "center", marginTop: 20 }}>🔍 Searching deals...</div>}
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
-              {filteredDeals.map((deal, i) => (
-                <DealCard key={i} deal={deal} />
-              ))}
-            </div>
-          </div>
+        <div
+          style={{
+            marginTop: 30,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
+            gap: 16,
+          }}
+        >
+          {filteredDeals.map((deal, i) => (
+            <DealCard key={i} deal={deal} />
+          ))}
         </div>
       </div>
     </div>
