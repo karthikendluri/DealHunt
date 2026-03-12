@@ -38,7 +38,6 @@ async function serperSearch(query, location) {
 
   return data.shopping.map((item) => {
     const price = parseFloat(item.price?.replace(/[^\d.]/g, "")) || 0;
-
     const original = price * 1.2;
     const discount = Math.round(((original - price) / original) * 100);
 
@@ -70,6 +69,7 @@ function DealCard({ deal }) {
         borderRadius: 16,
         border: "1px solid #e5e7eb",
         overflow: "hidden",
+        position: "relative",
       }}
     >
       <div
@@ -175,6 +175,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
 
+  // Filters
+  const [brandFilter, setBrandFilter] = useState("All");
+  const [sortBy, setSortBy] = useState("relevance");
+  const [maxPrice, setMaxPrice] = useState("");
+
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -216,36 +221,30 @@ export default function App() {
     setLoading(false);
   };
 
-  const suggestions = [
-    "iPhone 16",
-    "Nike Air Max",
-    "PS5",
-    "AirPods Pro",
-    "MacBook Air",
-  ];
+  const suggestions = ["iPhone 16", "Nike Air Max", "PS5", "AirPods Pro", "MacBook Air"];
+
+  // Extract brands from current deals
+  const brands = ["All", ...new Set(deals.map((d) => d.item.split(" ")[0]))];
+
+  // Apply filters and sorting
+  const filteredDeals = deals
+    .filter((deal) => {
+      if (brandFilter !== "All" && !deal.item.includes(brandFilter)) return false;
+      if (maxPrice && deal.discounted_price > Number(maxPrice)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "price_low") return a.discounted_price - b.discounted_price;
+      if (sortBy === "price_high") return b.discounted_price - a.discounted_price;
+      if (sortBy === "discount") return b.discount_percent - a.discount_percent;
+      return 0;
+    });
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f9fafb",
-        fontFamily: "sans-serif",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 900,
-          margin: "0 auto",
-          padding: 30,
-        }}
-      >
-        <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 10 }}>
-          🔥 DealHunt
-        </h1>
-
-        <p style={{ color: "#6b7280", marginBottom: 20 }}>
-          Find the best product deals online
-        </p>
+    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "sans-serif" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: 30 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 10 }}>🔥 DealHunt</h1>
+        <p style={{ color: "#6b7280", marginBottom: 20 }}>Find the best product deals online</p>
 
         <div style={{ display: "flex", gap: 10 }}>
           <input
@@ -254,14 +253,8 @@ export default function App() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && search()}
             placeholder="Search product deals..."
-            style={{
-              flex: 1,
-              padding: 12,
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-            }}
+            style={{ flex: 1, padding: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
           />
-
           <button
             onClick={search}
             disabled={loading}
@@ -299,11 +292,39 @@ export default function App() {
           ))}
         </div>
 
-        {loading && (
-          <div style={{ marginTop: 30, textAlign: "center" }}>
-            🔍 Searching deals...
-          </div>
-        )}
+        {/* Filters */}
+        <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <select
+            value={brandFilter}
+            onChange={(e) => setBrandFilter(e.target.value)}
+            style={{ padding: 8, borderRadius: 8 }}
+          >
+            {brands.map((b) => (
+              <option key={b}>{b}</option>
+            ))}
+          </select>
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{ padding: 8, borderRadius: 8 }}
+          >
+            <option value="relevance">Relevance</option>
+            <option value="price_low">Price: Low → High</option>
+            <option value="price_high">Price: High → Low</option>
+            <option value="discount">Biggest Discount</option>
+          </select>
+
+          <input
+            type="number"
+            placeholder="Max Price"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            style={{ padding: 8, borderRadius: 8, border: "1px solid #e5e7eb", width: 120 }}
+          />
+        </div>
+
+        {loading && <div style={{ marginTop: 30, textAlign: "center" }}>🔍 Searching deals...</div>}
 
         <div
           style={{
@@ -313,7 +334,7 @@ export default function App() {
             gap: 16,
           }}
         >
-          {deals.map((deal, i) => (
+          {filteredDeals.map((deal, i) => (
             <DealCard key={i} deal={deal} />
           ))}
         </div>
