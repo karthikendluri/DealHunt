@@ -130,7 +130,7 @@ function DealCard({ deal, showDiscount }) {
           <div style={{ fontSize: 11, color: "#16a34a", marginTop: 4 }}>{deal.shipping}</div>
         )}
         <a href={deal.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-block", marginTop: 12, background: "#2563eb", color: "#fff", padding: "8px 14px", borderRadius: 8, fontSize: 13, textDecoration: "none" }}>
-          View deal →
+          {showDiscount ? "View deal →" : "View →"}
         </a>
       </div>
     </div>
