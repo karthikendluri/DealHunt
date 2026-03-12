@@ -214,6 +214,32 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "sans-serif" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: 30 }}>
         <h1 style={{ fontSize: 26, fontWeight: 700 }}>🔥 DealHunt</h1>
+
+        {/* Search bar + sort */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && search()}
+            placeholder="Search product deals..."
+            style={{ flex: 1, padding: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+          />
+          <button
+            onClick={search}
+            disabled={loading}
+            style={{ background: "#2563eb", color: "#fff", padding: "12px 20px", borderRadius: 8, border: "none", cursor: "pointer" }}
+          >
+            {loading ? "Searching..." : "Search"}
+          </button>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ padding: 8, borderRadius: 8 }}>
+            <option value="relevance">Relevance</option>
+            <option value="price_low">Price: Low → High</option>
+            <option value="price_high">Price: High → Low</option>
+            <option value="discount">Biggest Discount</option>
+          </select>
+        </div>
+
         <div style={{ display: "flex", gap: 20 }}>
           {/* Sidebar filters */}
           <div style={{ width: 300, background: "#fff", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
@@ -271,34 +297,10 @@ export default function App() {
                 <input type="checkbox" checked={warrantyFilter.includes(w)} onChange={() => toggleFilter(warrantyFilter, setWarrantyFilter, w)} style={{ marginRight: 6 }} /> {w}
               </label>
             ))}
-            <h3 style={{ marginTop: 12 }}>Sort By</h3>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ width: "100%", padding: 6, borderRadius: 4 }}>
-              <option value="relevance">Relevance</option>
-              <option value="price_low">Price: Low → High</option>
-              <option value="price_high">Price: High → Low</option>
-              <option value="discount">Biggest Discount</option>
-            </select>
           </div>
 
-          {/* Main content */}
+          {/* Deals grid */}
           <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && search()}
-                placeholder="Search product deals..."
-                style={{ flex: 1, padding: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
-              />
-              <button
-                onClick={search}
-                disabled={loading}
-                style={{ background: "#2563eb", color: "#fff", padding: "12px 20px", borderRadius: 8, border: "none", cursor: "pointer" }}
-              >
-                {loading ? "Searching..." : "Search"}
-              </button>
-            </div>
             {loading && <div style={{ textAlign: "center", marginTop: 20 }}>🔍 Searching deals...</div>}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
               {filteredDeals.map((deal, i) => (
