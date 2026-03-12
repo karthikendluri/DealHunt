@@ -44,7 +44,6 @@ async function serperSearch(query, location) {
     return {
       store: item.source || "Store",
       item: item.title || "",
-      brand: item.title.split(" ")[0] || "Unknown",
       original_price: original,
       discounted_price: price,
       discount_percent: discount,
@@ -179,6 +178,7 @@ export default function App() {
   // Filters
   const [brandFilter, setBrandFilter] = useState("All");
   const [sortBy, setSortBy] = useState("relevance");
+  const [maxPrice, setMaxPrice] = useState("");
 
   const inputRef = useRef(null);
 
@@ -230,6 +230,7 @@ export default function App() {
   const filteredDeals = deals
     .filter((deal) => {
       if (brandFilter !== "All" && !deal.item.includes(brandFilter)) return false;
+      if (maxPrice && deal.discounted_price > Number(maxPrice)) return false;
       return true;
     })
     .sort((a, b) => {
@@ -313,6 +314,14 @@ export default function App() {
             <option value="price_high">Price: High → Low</option>
             <option value="discount">Biggest Discount</option>
           </select>
+
+          <input
+            type="number"
+            placeholder="Max Price"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            style={{ padding: 8, borderRadius: 8, border: "1px solid #e5e7eb", width: 120 }}
+          />
         </div>
 
         {loading && <div style={{ marginTop: 30, textAlign: "center" }}>🔍 Searching deals...</div>}
