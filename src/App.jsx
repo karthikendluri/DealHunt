@@ -42,10 +42,10 @@ async function serperSearch(query, location) {
       image_url: item.imageUrl,
       currency: "$",
       available_in: location?.country || "US",
-      rating: Math.floor(Math.random() * 5) + 1, // Mock ratings
+      rating: Math.floor(Math.random() * 5) + 1,
       condition: Math.random() > 0.2 ? "New" : "Refurbished",
       in_stock: Math.random() > 0.1,
-      features: ["Wi-Fi", "Bluetooth"][Math.floor(Math.random() * 2)], // Mock features
+      features: ["Wi-Fi", "Bluetooth"][Math.floor(Math.random() * 2)],
       shipping: Math.random() > 0.5 ? "Free shipping" : "Standard",
       warranty: ["1-year", "2-year"][Math.floor(Math.random() * 2)],
     };
@@ -56,29 +56,81 @@ function DealCard({ deal }) {
   const dc = discountColor(deal.discount_percent);
   const bg = discountBg(deal.discount_percent);
   return (
-    <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", overflow: "hidden", position: "relative" }}>
-      <div style={{ height: 180, background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {deal.image_url ? (
-          <img src={deal.image_url} alt={deal.item} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", padding: 16 }} />
-        ) : (
-          <div style={{ fontSize: 30 }}>📦</div>
-        )}
-        <div style={{ position: "absolute", top: 12, right: 12, background: bg, color: dc, padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-          -{deal.discount_percent}%
+    <a href={deal.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          border: "1px solid #e5e7eb",
+          overflow: "hidden",
+          position: "relative",
+          cursor: "pointer",
+        }}
+      >
+        <div
+          style={{
+            height: 180,
+            background: "#f9fafb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {deal.image_url ? (
+            <img
+              src={deal.image_url}
+              alt={deal.item}
+              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", padding: 16 }}
+            />
+          ) : (
+            <div style={{ fontSize: 30 }}>📦</div>
+          )}
+          <div
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              background: bg,
+              color: dc,
+              padding: "4px 10px",
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            -{deal.discount_percent}%
+          </div>
+        </div>
+        <div style={{ padding: 16 }}>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{deal.store}</div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, lineHeight: 1.4 }}>{deal.item}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: dc }}>
+              {deal.currency}
+              {deal.discounted_price.toFixed(2)}
+            </span>
+            <span style={{ textDecoration: "line-through", color: "#9ca3af", fontSize: 13 }}>
+              {deal.currency}
+              {deal.original_price.toFixed(2)}
+            </span>
+          </div>
+          <div
+            style={{
+              display: "inline-block",
+              marginTop: 12,
+              background: "#2563eb",
+              color: "#fff",
+              padding: "8px 14px",
+              borderRadius: 8,
+              fontSize: 13,
+              textAlign: "center",
+            }}
+          >
+            View deal →
+          </div>
         </div>
       </div>
-      <div style={{ padding: 16 }}>
-        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{deal.store}</div>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, lineHeight: 1.4 }}>{deal.item}</div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 20, fontWeight: 700, color: dc }}>{deal.currency}{deal.discounted_price.toFixed(2)}</span>
-          <span style={{ textDecoration: "line-through", color: "#9ca3af", fontSize: 13 }}>{deal.currency}{deal.original_price.toFixed(2)}</span>
-        </div>
-        <a href={deal.url} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 12, background: "#2563eb", color: "#fff", padding: "8px 14px", borderRadius: 8, fontSize: 13, textDecoration: "none" }}>
-          View deal →
-        </a>
-      </div>
-    </div>
+    </a>
   );
 }
 
@@ -101,7 +153,9 @@ export default function App() {
   const [warrantyFilter, setWarrantyFilter] = useState([]);
   const [sortBy, setSortBy] = useState("relevance");
 
-  useEffect(() => { detectLocation(); }, []);
+  useEffect(() => {
+    detectLocation();
+  }, []);
 
   const detectLocation = async () => {
     try {
@@ -115,105 +169,110 @@ export default function App() {
 
   const search = async () => {
     if (!query.trim()) return;
-    setDeals([]); setLoading(true);
-    try { const found = await serperSearch(query, location); setDeals(found); } 
-    catch (e) { console.error(e); }
+    setDeals([]);
+    setLoading(true);
+    try {
+      const found = await serperSearch(query, location);
+      setDeals(found);
+    } catch (e) {
+      console.error(e);
+    }
     setLoading(false);
   };
 
   const toggleFilter = (filter, setter, value) => {
-    setter(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+    setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
   };
 
   const filteredDeals = deals
-    .filter(d => !brandFilter.length || brandFilter.includes(d.brand))
-    .filter(d => !priceFilter.length || priceFilter.some(r => {
+    .filter((d) => !brandFilter.length || brandFilter.includes(d.brand))
+    .filter((d) => !priceFilter.length || priceFilter.some((r) => {
       if (r === "Under $50") return d.discounted_price < 50;
       if (r === "$50-$200") return d.discounted_price >= 50 && d.discounted_price <= 200;
       if (r === "$200+") return d.discounted_price > 200;
       return true;
     }))
-    .filter(d => !ratingFilter.length || ratingFilter.some(r => d.rating >= r))
-    .filter(d => !availabilityFilter.length || availabilityFilter.some(a => (a === "In stock" && d.in_stock) || (a === "Store pickup" && d.in_stock)))
-    .filter(d => !conditionFilter.length || conditionFilter.includes(d.condition))
-    .filter(d => !featuresFilter.length || featuresFilter.includes(d.features))
-    .filter(d => !dealTypeFilter.length || dealTypeFilter.includes(d.deal_type))
-    .filter(d => !shippingFilter.length || shippingFilter.includes(d.shipping))
-    .filter(d => !warrantyFilter.length || warrantyFilter.includes(d.warranty))
-    .sort((a,b) => {
-      if(sortBy==="price_low") return a.discounted_price-b.discounted_price;
-      if(sortBy==="price_high") return b.discounted_price-a.discounted_price;
-      if(sortBy==="discount") return b.discount_percent-a.discount_percent;
+    .filter((d) => !ratingFilter.length || ratingFilter.some((r) => d.rating >= r))
+    .filter((d) => !availabilityFilter.length || availabilityFilter.some((a) => (a === "In stock" && d.in_stock) || (a === "Store pickup" && d.in_stock)))
+    .filter((d) => !conditionFilter.length || conditionFilter.includes(d.condition))
+    .filter((d) => !featuresFilter.length || featuresFilter.includes(d.features))
+    .filter((d) => !dealTypeFilter.length || dealTypeFilter.includes(d.deal_type))
+    .filter((d) => !shippingFilter.length || shippingFilter.includes(d.shipping))
+    .filter((d) => !warrantyFilter.length || warrantyFilter.includes(d.warranty))
+    .sort((a, b) => {
+      if (sortBy === "price_low") return a.discounted_price - b.discounted_price;
+      if (sortBy === "price_high") return b.discounted_price - a.discounted_price;
+      if (sortBy === "discount") return b.discount_percent - a.discount_percent;
       return 0;
     });
 
-  const brands = [...new Set(deals.map(d=>d.brand))];
-  const features = [...new Set(deals.map(d=>d.features))];
-  const warranties = [...new Set(deals.map(d=>d.warranty))];
+  const brands = [...new Set(deals.map((d) => d.brand))];
+  const features = [...new Set(deals.map((d) => d.features))];
+  const warranties = [...new Set(deals.map((d) => d.warranty))];
 
   return (
-    <div style={{ minHeight:"100vh", background:"#f9fafb", fontFamily:"sans-serif" }}>
-      <div style={{ maxWidth:1200, margin:"0 auto", padding:30 }}>
-        <h1 style={{ fontSize:26, fontWeight:700 }}>🔥 DealHunt</h1>
-        <div style={{ display:"flex", gap:20 }}>
+    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "sans-serif" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: 30 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700 }}>🔥 DealHunt</h1>
+        <div style={{ display: "flex", gap: 20 }}>
           {/* Sidebar filters */}
-          <div style={{ width:300, background:"#fff", padding:16, borderRadius:8, border:"1px solid #e5e7eb" }}>
+          <div style={{ width: 300, background: "#fff", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
             <h3>Brand</h3>
-            {brands.map(b => (
-              <label key={b} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={brandFilter.includes(b)} onChange={()=>toggleFilter(brandFilter,setBrandFilter,b)} style={{ marginRight:6 }}/> {b}
+            {brands.map((b) => (
+              <label key={b} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={brandFilter.includes(b)} onChange={() => toggleFilter(brandFilter, setBrandFilter, b)} style={{ marginRight: 6 }} /> {b}
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Price</h3>
-            {["Under $50","$50-$200","$200+"].map(p=>(
-              <label key={p} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={priceFilter.includes(p)} onChange={()=>toggleFilter(priceFilter,setPriceFilter,p)} style={{marginRight:6}}/> {p}
+            <h3 style={{ marginTop: 12 }}>Price</h3>
+            {["Under $50", "$50-$200", "$200+"].map((p) => (
+              <label key={p} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={priceFilter.includes(p)} onChange={() => toggleFilter(priceFilter, setPriceFilter, p)} style={{ marginRight: 6 }} /> {p}
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Customer Ratings</h3>
-            {[4,3].map(r=>(
-              <label key={r} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={ratingFilter.includes(r)} onChange={()=>toggleFilter(ratingFilter,setRatingFilter,r)} style={{marginRight:6}}/> {r} stars & up
+            <h3 style={{ marginTop: 12 }}>Customer Ratings</h3>
+            {[4, 3].map((r) => (
+              <label key={r} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={ratingFilter.includes(r)} onChange={() => toggleFilter(ratingFilter, setRatingFilter, r)} style={{ marginRight: 6 }} /> {r} stars & up
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Availability</h3>
-            {["In stock","Store pickup"].map(a=>(
-              <label key={a} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={availabilityFilter.includes(a)} onChange={()=>toggleFilter(availabilityFilter,setAvailabilityFilter,a)} style={{marginRight:6}}/> {a}
+            <h3 style={{ marginTop: 12 }}>Availability</h3>
+            {["In stock", "Store pickup"].map((a) => (
+              <label key={a} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={availabilityFilter.includes(a)} onChange={() => toggleFilter(availabilityFilter, setAvailabilityFilter, a)} style={{ marginRight: 6 }} /> {a}
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Condition</h3>
-            {["New","Refurbished"].map(c=>(
-              <label key={c} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={conditionFilter.includes(c)} onChange={()=>toggleFilter(conditionFilter,setConditionFilter,c)} style={{marginRight:6}}/> {c}
+            <h3 style={{ marginTop: 12 }}>Condition</h3>
+            {["New", "Refurbished"].map((c) => (
+              <label key={c} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={conditionFilter.includes(c)} onChange={() => toggleFilter(conditionFilter, setConditionFilter, c)} style={{ marginRight: 6 }} /> {c}
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Features</h3>
-            {features.map(f=>(
-              <label key={f} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={featuresFilter.includes(f)} onChange={()=>toggleFilter(featuresFilter,setFeaturesFilter,f)} style={{marginRight:6}}/> {f}
+            <h3 style={{ marginTop: 12 }}>Features</h3>
+            {features.map((f) => (
+              <label key={f} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={featuresFilter.includes(f)} onChange={() => toggleFilter(featuresFilter, setFeaturesFilter, f)} style={{ marginRight: 6 }} /> {f}
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Deals / Discounts</h3>
-            {["Sale","Clearance","Bundle offers"].map(d=>(
-              <label key={d} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={dealTypeFilter.includes(d)} onChange={()=>toggleFilter(dealTypeFilter,setDealTypeFilter,d)} style={{marginRight:6}}/> {d}
+            <h3 style={{ marginTop: 12 }}>Deals / Discounts</h3>
+            {["Sale", "Clearance", "Bundle offers"].map((d) => (
+              <label key={d} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={dealTypeFilter.includes(d)} onChange={() => toggleFilter(dealTypeFilter, setDealTypeFilter, d)} style={{ marginRight: 6 }} /> {d}
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Shipping</h3>
-            {["Free shipping","Standard"].map(s=>(
-              <label key={s} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={shippingFilter.includes(s)} onChange={()=>toggleFilter(shippingFilter,setShippingFilter,s)} style={{marginRight:6}}/> {s}
+            <h3 style={{ marginTop: 12 }}>Shipping</h3>
+            {["Free shipping", "Standard"].map((s) => (
+              <label key={s} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={shippingFilter.includes(s)} onChange={() => toggleFilter(shippingFilter, setShippingFilter, s)} style={{ marginRight: 6 }} /> {s}
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Warranty</h3>
-            {warranties.map(w=>(
-              <label key={w} style={{ display:"block", fontSize:13 }}>
-                <input type="checkbox" checked={warrantyFilter.includes(w)} onChange={()=>toggleFilter(warrantyFilter,setWarrantyFilter,w)} style={{marginRight:6}}/> {w}
+            <h3 style={{ marginTop: 12 }}>Warranty</h3>
+            {warranties.map((w) => (
+              <label key={w} style={{ display: "block", fontSize: 13 }}>
+                <input type="checkbox" checked={warrantyFilter.includes(w)} onChange={() => toggleFilter(warrantyFilter, setWarrantyFilter, w)} style={{ marginRight: 6 }} /> {w}
               </label>
             ))}
-            <h3 style={{marginTop:12}}>Sort By</h3>
-            <select value={sortBy} onChange={(e)=>setSortBy(e.target.value)} style={{width:"100%",padding:6,borderRadius:4}}>
+            <h3 style={{ marginTop: 12 }}>Sort By</h3>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ width: "100%", padding: 6, borderRadius: 4 }}>
               <option value="relevance">Relevance</option>
               <option value="price_low">Price: Low → High</option>
               <option value="price_high">Price: High → Low</option>
@@ -222,14 +281,29 @@ export default function App() {
           </div>
 
           {/* Main content */}
-          <div style={{ flex:1 }}>
-            <div style={{ display:"flex", gap:10, marginBottom:20 }}>
-              <input ref={inputRef} value={query} onChange={(e)=>setQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder="Search product deals..." style={{ flex:1,padding:12,borderRadius:8,border:"1px solid #e5e7eb" }}/>
-              <button onClick={search} disabled={loading} style={{ background:"#2563eb",color:"#fff",padding:"12px 20px",borderRadius:8,border:"none",cursor:"pointer" }}>{loading?"Searching...":"Search"}</button>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && search()}
+                placeholder="Search product deals..."
+                style={{ flex: 1, padding: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+              />
+              <button
+                onClick={search}
+                disabled={loading}
+                style={{ background: "#2563eb", color: "#fff", padding: "12px 20px", borderRadius: 8, border: "none", cursor: "pointer" }}
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
             </div>
-            {loading && <div style={{textAlign:"center",marginTop:20}}>🔍 Searching deals...</div>}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:16 }}>
-              {filteredDeals.map((deal,i)=><DealCard key={i} deal={deal} />)}
+            {loading && <div style={{ textAlign: "center", marginTop: 20 }}>🔍 Searching deals...</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
+              {filteredDeals.map((deal, i) => (
+                <DealCard key={i} deal={deal} />
+              ))}
             </div>
           </div>
         </div>
