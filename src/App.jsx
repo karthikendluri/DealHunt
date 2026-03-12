@@ -2,39 +2,28 @@ import { useState, useRef, useEffect } from "react";
 
 const SERPER_KEY = import.meta.env.VITE_SERPER_KEY;
 
-// ─── CACHE LAYER ───────────────────────────────────────────
-// Saves results in memory for the session
-// Same search = zero API calls reused from cache
+// ─── CACHE ─────────────────────────────────────────────────
 const cache = new Map();
-const CACHE_TTL = 1000 * 60 * 15; // 15 minutes
+const CACHE_TTL = 1000 * 60 * 15;
 
 function getCached(key) {
   const entry = cache.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.timestamp > CACHE_TTL) {
-    cache.delete(key);
-    return null;
-  }
+  if (Date.now() - entry.timestamp > CACHE_TTL) { cache.delete(key); return null; }
   return entry.data;
 }
-
 function setCache(key, data) {
   cache.set(key, { data, timestamp: Date.now() });
 }
 
-// ─── API CALLS ─────────────────────────────────────────────
+// ─── API ───────────────────────────────────────────────────
 async function serperSearch(query, location, withDiscount) {
   const country = location?.countryCode?.toLowerCase() || "us";
   const q = withDiscount ? query + " discount sale" : query;
-  const cacheKey = `${q}__${country}`;
-
+  const cacheKey = `general__${q}__${country}`;
   const cached = getCached(cacheKey);
-  if (cached) {
-    console.log("✅ Cache hit:", cacheKey);
-    return cached;
-  }
+  if (cached) return cached;
 
-  console.log("🌐 API call:", cacheKey);
   const res = await fetch("https://google.serper.dev/shopping", {
     method: "POST",
     headers: { "X-API-KEY": SERPER_KEY, "Content-Type": "application/json" },
@@ -67,6 +56,44 @@ async function serperSearch(query, location, withDiscount) {
   return results;
 }
 
+async function storeSearch(query, storeName, siteDomain, withDiscount) {
+  const q = `${query} site:${siteDomain}`;
+  const cacheKey = `${storeName}__${q}__${withDiscount}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
+  const res = await fetch("https://google.serper.dev/shopping", {
+    method: "POST",
+    headers: { "X-API-KEY": SERPER_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ q, gl: "us", num: 10 }),
+  });
+  const data = await res.json();
+  if (!data.shopping) return [];
+
+  const results = data.shopping.map((item) => {
+    const price = parseFloat(item.price?.replace(/[^\d.]/g, "")) || 0;
+    const original = withDiscount ? price * 1.2 : price;
+    const discount = withDiscount ? Math.round(((original - price) / original) * 100) : 0;
+    return {
+      store: storeName,
+      item: item.title || "",
+      brand: item.title.split(" ")[0] || "Unknown",
+      original_price: original,
+      discounted_price: price,
+      discount_percent: discount,
+      url: item.link || item.product_link || "#",
+      image_url: item.imageUrl,
+      currency: "$",
+      rating: item.rating ? parseFloat(item.rating) : null,
+      reviews: item.reviews || null,
+      shipping: item.shipping || "Free with membership",
+    };
+  });
+
+  setCache(cacheKey, results);
+  return results;
+}
+
 // ─── COLORS ────────────────────────────────────────────────
 function discountColor(pct) {
   if (pct >= 50) return "#dc2626";
@@ -79,6 +106,13 @@ function discountBg(pct) {
   if (pct >= 30) return "#fff7ed";
   if (pct >= 15) return "#f0fdf4";
   return "#eff6ff";
+}
+
+// ─── STORE BADGE COLOR ─────────────────────────────────────
+function storeBadgeStyle(store) {
+  if (store === "Sam's Club") return { background: "#0067a0", color: "#fff" };
+  if (store === "Costco") return { background: "#005daa", color: "#fff" };
+  return { background: "rgba(0,0,0,0.45)", color: "#fff" };
 }
 
 // ─── DEAL CARD ─────────────────────────────────────────────
@@ -108,7 +142,11 @@ function DealCard({ deal, showDiscount }) {
             </div>
           )}
           {deal.store && (
-            <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.45)", color: "#fff", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 500 }}>
+            <div style={{
+              position: "absolute", bottom: 8, right: 8,
+              ...storeBadgeStyle(deal.store),
+              padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600
+            }}>
               {deal.store}
             </div>
           )}
@@ -186,6 +224,30 @@ function FilterDropdown({ label, options, selected, onChange }) {
   );
 }
 
+// ─── STORE FILTER ──────────────────────────────────────────
+function StoreFilter({ selected, onChange }) {
+  const stores = [
+    { id: "all", label: "🛒 All Stores" },
+    { id: "Sam's Club", label: "🏪 Sam's Club" },
+    { id: "Costco", label: "🏬 Costco" },
+    { id: "other", label: "🌐 Other" },
+  ];
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+      {stores.map(s => (
+        <button key={s.id} onClick={() => onChange(s.id)} style={{
+          padding: "6px 14px", borderRadius: 20, border: "1px solid #e5e7eb",
+          background: selected === s.id ? "#2563eb" : "#fff",
+          color: selected === s.id ? "#fff" : "#374151",
+          fontSize: 13, cursor: "pointer", fontWeight: selected === s.id ? 600 : 400
+        }}>
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── SECTION TABS ──────────────────────────────────────────
 function SectionTabs({ activeTab, onChange }) {
   return (
@@ -202,13 +264,18 @@ function SectionTabs({ activeTab, onChange }) {
   );
 }
 
-// ─── CACHE STATS BADGE ─────────────────────────────────────
-function CacheStats() {
-  const size = cache.size;
-  if (size === 0) return null;
+// ─── CACHE STATS ───────────────────────────────────────────
+function CacheStats({ apiCallCount }) {
   return (
-    <div style={{ fontSize: 11, color: "#16a34a", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "3px 10px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 4 }}>
-      ⚡ {size} search{size !== 1 ? "es" : ""} cached — no extra API calls
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      {cache.size > 0 && (
+        <div style={{ fontSize: 11, color: "#16a34a", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "3px 10px", borderRadius: 20 }}>
+          ⚡ {cache.size} cached
+        </div>
+      )}
+      <div style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", border: "1px solid #e5e7eb", padding: "3px 10px", borderRadius: 20 }}>
+        🌐 {apiCallCount} API calls
+      </div>
     </div>
   );
 }
@@ -222,6 +289,8 @@ export default function App() {
   const [location, setLocation] = useState(null);
   const [activeTab, setActiveTab] = useState("deals");
   const [apiCallCount, setApiCallCount] = useState(0);
+  const [storeFilter, setStoreFilter] = useState("all");
+  const [ndStoreFilter, setNdStoreFilter] = useState("all");
   const inputRef = useRef(null);
 
   const [priceFilter, setPriceFilter] = useState([]);
@@ -250,22 +319,22 @@ export default function App() {
     setPriceFilter([]); setBrandFilter([]); setShippingFilter([]);
     setRatingFilter([]); setDiscountFilter([]);
     setNdPriceFilter([]); setNdBrandFilter([]); setNdRatingFilter([]);
+    setStoreFilter("all"); setNdStoreFilter("all");
     setLoading(true);
-
-    // Count how many are real API calls vs cache hits
-    const key1 = `${query + " discount sale"}__${location?.countryCode?.toLowerCase() || "us"}`;
-    const key2 = `${query}__${location?.countryCode?.toLowerCase() || "us"}`;
-    const hits = [getCached(key1), getCached(key2)].filter(Boolean).length;
-    const newCalls = 2 - hits;
-    if (newCalls > 0) setApiCallCount(c => c + newCalls);
+    setApiCallCount(c => c + 6); // 6 parallel calls per search
 
     try {
-      const [found, foundNd] = await Promise.all([
+      const [general, sams, costco, generalNd, samsNd, costcoNd] = await Promise.all([
         serperSearch(query, location, true),
+        storeSearch(query, "Sam's Club", "samsclub.com", true),
+        storeSearch(query, "Costco", "costco.com", true),
         serperSearch(query, location, false),
+        storeSearch(query, "Sam's Club", "samsclub.com", false),
+        storeSearch(query, "Costco", "costco.com", false),
       ]);
-      setDeals(found);
-      setNoDiscountDeals(foundNd);
+
+      setDeals([...sams, ...costco, ...general]);
+      setNoDiscountDeals([...samsNd, ...costcoNd, ...generalNd]);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -298,11 +367,19 @@ export default function App() {
     return 0;
   });
 
+  const applyStore = (list, sf) => {
+    if (sf === "all") return list;
+    if (sf === "Sam's Club") return list.filter(d => d.store === "Sam's Club");
+    if (sf === "Costco") return list.filter(d => d.store === "Costco");
+    if (sf === "other") return list.filter(d => d.store !== "Sam's Club" && d.store !== "Costco");
+    return list;
+  };
+
   const brandOptions = [...new Set(deals.map(d => d.brand))].slice(0, 10);
   const shippingOptions = [...new Set(deals.map(d => d.shipping).filter(Boolean))];
   const ndBrandOptions = [...new Set(noDiscountDeals.map(d => d.brand))].slice(0, 10);
 
-  const filteredDeals = applySort(applyRating(applyPrice(
+  const filteredDeals = applyStore(applySort(applyRating(applyPrice(
     deals
       .filter(d => !brandFilter.length || brandFilter.includes(d.brand))
       .filter(d => !shippingFilter.length || shippingFilter.includes(d.shipping))
@@ -312,11 +389,11 @@ export default function App() {
         if (r === "15%+ off") return d.discount_percent >= 15;
         return true;
       })),
-    priceFilter), ratingFilter), sortBy);
+    priceFilter), ratingFilter), sortBy), storeFilter);
 
-  const filteredNdDeals = applySort(applyRating(applyPrice(
+  const filteredNdDeals = applyStore(applySort(applyRating(applyPrice(
     noDiscountDeals.filter(d => !ndBrandFilter.length || ndBrandFilter.includes(d.brand)),
-    ndPriceFilter), ndRatingFilter), ndSortBy);
+    ndPriceFilter), ndRatingFilter), ndSortBy), ndStoreFilter);
 
   const activeFilterCount = brandFilter.length + priceFilter.length + shippingFilter.length + ratingFilter.length + discountFilter.length;
   const ndActiveFilterCount = ndPriceFilter.length + ndBrandFilter.length + ndRatingFilter.length;
@@ -329,13 +406,7 @@ export default function App() {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
           <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>🔥 DealHunt</h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <CacheStats />
-            {/* API call counter */}
-            <div style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", border: "1px solid #e5e7eb", padding: "3px 10px", borderRadius: 20 }}>
-              🌐 {apiCallCount} API call{apiCallCount !== 1 ? "s" : ""} used
-            </div>
-          </div>
+          <CacheStats apiCallCount={apiCallCount} />
         </div>
 
         {/* Search bar */}
@@ -345,7 +416,7 @@ export default function App() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && search()}
-            placeholder="Search product deals..."
+            placeholder="Search deals across all stores..."
             style={{ flex: 1, minWidth: 0, padding: 12, borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14 }}
           />
           <button onClick={search} disabled={loading}
@@ -360,8 +431,8 @@ export default function App() {
           {hasSearched && (
             <span style={{ fontSize: 13, color: "#9ca3af" }}>
               {activeTab === "deals"
-                ? `${filteredDeals.length} discounted result${filteredDeals.length !== 1 ? "s" : ""}`
-                : `${filteredNdDeals.length} full-price result${filteredNdDeals.length !== 1 ? "s" : ""}`}
+                ? `${filteredDeals.length} result${filteredDeals.length !== 1 ? "s" : ""}`
+                : `${filteredNdDeals.length} result${filteredNdDeals.length !== 1 ? "s" : ""}`}
             </span>
           )}
         </div>
@@ -369,6 +440,7 @@ export default function App() {
         {/* WITH DISCOUNT TAB */}
         {activeTab === "deals" && (
           <>
+            {deals.length > 0 && <StoreFilter selected={storeFilter} onChange={setStoreFilter} />}
             {deals.length > 0 && (
               <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <FilterDropdown label="Price" options={priceOptions} selected={priceFilter} onChange={setPriceFilter} />
@@ -397,14 +469,14 @@ export default function App() {
                 )}
               </div>
             )}
-            {loading && <div style={{ textAlign: "center", marginTop: 40, fontSize: 16 }}>🔍 Searching deals...</div>}
+            {loading && <div style={{ textAlign: "center", marginTop: 40, fontSize: 16 }}>🔍 Searching Sam's Club, Costco & more...</div>}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
               {filteredDeals.map((deal, i) => <DealCard key={i} deal={deal} showDiscount={true} />)}
             </div>
             {!loading && !hasSearched && (
               <div style={{ textAlign: "center", marginTop: 80, color: "#9ca3af" }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
-                <div style={{ fontSize: 16 }}>Search for a product to find the best deals</div>
+                <div style={{ fontSize: 16 }}>Search deals across Sam's Club, Costco & more</div>
               </div>
             )}
           </>
@@ -420,12 +492,15 @@ export default function App() {
               </div>
             )}
             {hasSearched && (
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 18 }}>🏷️</span>
-                <span style={{ fontSize: 13, color: "#475569" }}>
-                  <strong>Full-price listings</strong> — compare against deal prices.
-                </span>
-              </div>
+              <>
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>🏷️</span>
+                  <span style={{ fontSize: 13, color: "#475569" }}>
+                    <strong>Full-price listings</strong> from Sam's Club, Costco & more — compare against deal prices.
+                  </span>
+                </div>
+                <StoreFilter selected={ndStoreFilter} onChange={setNdStoreFilter} />
+              </>
             )}
             {noDiscountDeals.length > 0 && (
               <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
