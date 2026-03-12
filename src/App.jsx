@@ -305,7 +305,6 @@ function FilterDropdown({ label, options, selected, onChange }) {
 
 // ─── STORE FILTER ──────────────────────────────────────────
 const STORES = [
-  { id: "all",      label: "🛒 All" },
   { id: "Best Buy", label: "💙 Best Buy" },
   { id: "Walmart",  label: "🔵 Walmart" },
   { id: "eBay",     label: "🔴 eBay" },
